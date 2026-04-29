@@ -14,37 +14,25 @@ if (!process.env.JWT_SECRET) {
     process.exit(1)
 }
 
-if (!process.env.FRONTEND_URL) {
-    console.warn("⚠️ FRONTEND_URL not set")
-}
-
 // ─── CORS ────────────────────────────────────────────────
 
+// ✅ FINAL ALLOWED ORIGINS
 const allowedOrigins = [
     "http://localhost:3000",
-    process.env.FRONTEND_URL,
-].filter(Boolean)
+    "https://zapiya.com",
+    "https://www.zapiya.com",
+]
 
 console.log("🌐 Allowed Origins:", allowedOrigins)
+
+// ✅ SIMPLE + RELIABLE CORS
 fastify.register(require("@fastify/cors"), {
     origin: (origin, cb) => {
-        const allowed = [
-            "http://localhost:3000",
-            process.env.FRONTEND_URL,
-        ].filter(Boolean)
-
         if (!origin) return cb(null, true)
 
-        const cleanOrigin = origin.replace(/\/$/, "")
-        const isAllowed = allowed.some(
-            (o) => o.replace(/\/$/, "") === cleanOrigin
-        )
-
-        if (isAllowed) {
+        if (allowedOrigins.includes(origin)) {
             console.log("✅ CORS allowed:", origin)
-
-            // 🔥 THIS IS THE KEY FIX
-            return cb(null, origin)
+            return cb(null, true)
         }
 
         console.error("❌ CORS blocked:", origin)
@@ -67,7 +55,7 @@ fastify.register(require("@fastify/jwt"), {
     },
 })
 
-// ─── REQUEST LOGGING (VERY USEFUL) ─────────────────────────
+// ─── REQUEST LOGGING ─────────────────────────────────────
 
 fastify.addHook("onRequest", async (req, reply) => {
     fastify.log.info({
@@ -86,7 +74,7 @@ fastify.addHook("onResponse", async (req, reply) => {
     }, "Response sent")
 })
 
-// ─── GLOBAL ERROR HANDLER (CRITICAL) ──────────────────────
+// ─── GLOBAL ERROR HANDLER ────────────────────────────────
 
 fastify.setErrorHandler((error, req, reply) => {
     fastify.log.error("🔥 Server Error:", error)
