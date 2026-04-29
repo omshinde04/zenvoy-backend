@@ -1,27 +1,34 @@
-// src/index.js
-
 require("dotenv").config()
-
-// src/index.js — update this line at the top
 
 const fastify = require("fastify")({
     logger: true,
-    bodyLimit: 10 * 1024 * 1024, // 10MB limit for resume JSON
+    bodyLimit: 10 * 1024 * 1024,
 })
 
-// ─── PLUGINS ────────────────────────────────────────────────
+// ─── CORS ────────────────────────────────────────────────
 
-// CORS
+const allowedOrigins = [
+    "http://localhost:3000",
+    process.env.FRONTEND_URL, // your Vercel frontend
+]
+
 fastify.register(require("@fastify/cors"), {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: (origin, cb) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            cb(null, true)
+            return
+        }
+        cb(new Error("Not allowed"), false)
+    },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 })
 
-// Cookie
+// ─── COOKIE ───────────────────────────────────────────────
+
 fastify.register(require("@fastify/cookie"))
 
-// JWT
+// ─── JWT ──────────────────────────────────────────────────
+
 fastify.register(require("@fastify/jwt"), {
     secret: process.env.JWT_SECRET,
     cookie: {
@@ -30,17 +37,18 @@ fastify.register(require("@fastify/jwt"), {
     },
 })
 
-// ─── ROUTES ─────────────────────────────────────────────────
+// ─── ROUTES ───────────────────────────────────────────────
 
 fastify.register(require("./routes/auth"))
 fastify.register(require("./routes/pdf"))
 
-// Health check
+// ─── HEALTH CHECK ─────────────────────────────────────────
+
 fastify.get("/health", async () => {
     return { status: "ok", service: "Zenvoy API" }
 })
 
-// ─── START ──────────────────────────────────────────────────
+// ─── START SERVER ─────────────────────────────────────────
 
 const start = async () => {
     try {
@@ -48,7 +56,8 @@ const start = async () => {
             port: process.env.PORT || 4000,
             host: "0.0.0.0",
         })
-        console.log(`🚀 Zenvoy backend running on port ${process.env.PORT || 4000}`)
+
+        console.log(`🚀 Backend running on port ${process.env.PORT || 4000}`)
     } catch (err) {
         fastify.log.error(err)
         process.exit(1)
