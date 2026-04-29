@@ -511,16 +511,18 @@ function buildTechBoldHeader(d) {
 
 async function generatePDF(templateId, data) {
   const html = getTemplateHTML(templateId, data)
-
   const browser = await puppeteer.launch({
-    headless: true,
+    headless: "new", // better stability in latest versions
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
       "--disable-gpu",
+      "--no-zygote",
+      "--single-process",
       "--font-render-hinting=none",
     ],
+    defaultViewport: null,
   })
 
   try {
