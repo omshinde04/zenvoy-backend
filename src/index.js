@@ -29,17 +29,26 @@ console.log("🌐 Allowed Origins:", allowedOrigins)
 
 fastify.register(require("@fastify/cors"), {
     origin: (origin, cb) => {
-        if (!origin) {
-            // allow server-to-server / curl
-            return cb(null, true)
+        const allowed = [
+            "http://localhost:3000",
+            process.env.FRONTEND_URL,
+        ].filter(Boolean)
+
+        if (!origin) return cb(null, true)
+
+        const cleanOrigin = origin.replace(/\/$/, "")
+
+        const isAllowed = allowed.some(
+            (o) => o.replace(/\/$/, "") === cleanOrigin
+        )
+
+        if (isAllowed) {
+            // ✅ IMPORTANT: explicitly return origin
+            return cb(null, origin)
         }
 
-        if (allowedOrigins.includes(origin)) {
-            return cb(null, true)
-        }
-
-        console.error("❌ CORS Blocked:", origin)
-        return cb(new Error("Not allowed by CORS"), false)
+        console.error("❌ CORS blocked:", origin)
+        return cb(new Error("Not allowed"), false)
     },
     credentials: true,
 })
