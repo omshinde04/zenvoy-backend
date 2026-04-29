@@ -10,7 +10,7 @@ const VALID_TEMPLATES = [
 
 async function pdfRoutes(fastify) {
 
-    // Tell Fastify to accept larger payloads for resume data
+    // Accept large JSON payloads
     fastify.addContentTypeParser(
         "application/json",
         { parseAs: "string", bodyLimit: 10 * 1024 * 1024 },
@@ -54,15 +54,19 @@ async function pdfRoutes(fastify) {
 
             const fileName = `${name}-zenvoy.pdf`
 
+            // ✅ ONLY THESE HEADERS
             reply.raw.setHeader("Content-Type", "application/pdf")
             reply.raw.setHeader("Content-Disposition", `attachment; filename="${fileName}"`)
             reply.raw.setHeader("Content-Length", pdfBuffer.length)
-            reply.raw.setHeader("Access-Control-Allow-Origin", "http://localhost:3000")
-            reply.raw.setHeader("Access-Control-Allow-Credentials", "true")
-            reply.raw.end(pdfBuffer)
+
+            // ❌ DO NOT SET CORS HERE
+            // Fastify CORS plugin already handles it
+
+            return reply.send(pdfBuffer)
 
         } catch (err) {
             fastify.log.error("PDF generation error:", err)
+
             return reply.status(500).send({
                 success: false,
                 message: err.message || "PDF generation failed",
