@@ -26,7 +26,6 @@ const allowedOrigins = [
 ].filter(Boolean)
 
 console.log("🌐 Allowed Origins:", allowedOrigins)
-
 fastify.register(require("@fastify/cors"), {
     origin: (origin, cb) => {
         const allowed = [
@@ -37,13 +36,14 @@ fastify.register(require("@fastify/cors"), {
         if (!origin) return cb(null, true)
 
         const cleanOrigin = origin.replace(/\/$/, "")
-
         const isAllowed = allowed.some(
             (o) => o.replace(/\/$/, "") === cleanOrigin
         )
 
         if (isAllowed) {
-            // ✅ IMPORTANT: explicitly return origin
+            console.log("✅ CORS allowed:", origin)
+
+            // 🔥 THIS IS THE KEY FIX
             return cb(null, origin)
         }
 
