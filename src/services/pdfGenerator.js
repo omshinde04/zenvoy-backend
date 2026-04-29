@@ -1,6 +1,8 @@
 // src/services/pdfGenerator.js
 
-const puppeteer = require("puppeteer")
+const puppeteer = require("puppeteer-core")
+const chromium = require("@sparticuz/chromium")
+
 
 // ── Template HTML Builders ───────────────────────────────────
 // Each function takes data and returns complete HTML string
@@ -507,47 +509,46 @@ function buildTechBoldHeader(d) {
   return baseHtml(body)
 }
 
-// src/services/pdfGenerator.js — fix the generatePDF function only
-
 async function generatePDF(templateId, data) {
   const html = getTemplateHTML(templateId, data)
+
   const browser = await puppeteer.launch({
-    headless: "new", // better stability in latest versions
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--no-zygote",
-      "--single-process",
-      "--font-render-hinting=none",
-    ],
+    args: chromium.args,
+    executablePath: await chromium.executablePath(),
+    headless: chromium.headless,
     defaultViewport: null,
   })
 
   try {
     const page = await browser.newPage()
 
-    await page.setViewport({ width: 794, height: 1123 })
-
+    // Load HTML
     await page.setContent(html, {
-      waitUntil: "domcontentloaded",
+      waitUntil: "networkidle0",
       timeout: 30000,
     })
 
-    // Wait for fonts
-    await page.waitForFunction(() => document.fonts.ready)
+    // Wait for fonts (important for layout)
+    await page.evaluateHandle("document.fonts.ready")
 
+    // ✅ FINAL PDF CONFIG (MULTI-PAGE SUPPORT)
     const pdf = await page.pdf({
-      width: "794px",
-      height: "1123px",
+      format: "A4",
       printBackground: true,
-      margin: { top: "0px", right: "0px", bottom: "0px", left: "0px" },
-      preferCSSPageSize: false,
+      preferCSSPageSize: true,
+      margin: {
+        top: "12mm",
+        right: "12mm",
+        bottom: "12mm",
+        left: "12mm",
+      },
     })
 
     return pdf
 
+  } catch (err) {
+    console.error("❌ PDF generation failed:", err)
+    throw err
   } finally {
     await browser.close()
   }
