@@ -65,10 +65,10 @@ async function authRoutes(fastify) {
             // Set httpOnly cookie
             reply.setCookie("zenvoy_token", token, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "lax",
+                secure: true,
+                sameSite: "none",
                 path: "/",
-                maxAge: 60 * 60 * 24 * 7, // 7 days
+                maxAge: 60 * 60 * 24 * 7,
             })
 
             return reply.status(201).send({

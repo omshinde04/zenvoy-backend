@@ -9,16 +9,21 @@ const fastify = require("fastify")({
 
 const allowedOrigins = [
     "http://localhost:3000",
-    process.env.FRONTEND_URL, // your Vercel frontend
-]
+    process.env.FRONTEND_URL,
+].filter(Boolean)
+
+console.log("✅ Allowed Origins:", allowedOrigins)
 
 fastify.register(require("@fastify/cors"), {
     origin: (origin, cb) => {
-        if (!origin || allowedOrigins.includes(origin)) {
+        // allow server-to-server or curl requests (no origin)
+        if (!origin) return cb(null, true)
+
+        if (allowedOrigins.includes(origin)) {
             cb(null, true)
-            return
+        } else {
+            cb(new Error(`CORS blocked: ${origin}`), false)
         }
-        cb(new Error("Not allowed"), false)
     },
     credentials: true,
 })
