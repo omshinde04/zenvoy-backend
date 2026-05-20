@@ -6,7 +6,8 @@
 
 "use strict"
 
-const puppeteer = require("puppeteer")
+const puppeteer = require("puppeteer-core")
+const chromium = require("@sparticuz/chromium")
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const FONT_TIMEOUT_MS = 5000
@@ -441,31 +442,36 @@ function getTemplateHTML(templateId, data) {
 
 // ── PDF render — single attempt ───────────────────────────────────────────────
 async function renderOnce(html) {
+
   const browser = await puppeteer.launch({
-    headless: "new",
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--disable-software-rasterizer",
-      "--font-render-hinting=none",
-      "--disable-extensions",
-      "--disable-background-networking",
-      "--no-first-run",
-    ],
+
+    args: chromium.args,
+
+    defaultViewport: chromium.defaultViewport,
+
+    executablePath: await chromium.executablePath(),
+
+    headless: chromium.headless,
+
+    ignoreHTTPSErrors: true,
   })
 
   try {
+
     const page = await browser.newPage()
-    await page.setViewport({ width: 794, height: 1123, deviceScaleFactor: 1 })
+
+    await page.setViewport({
+      width: 794,
+      height: 1123,
+      deviceScaleFactor: 1,
+    })
 
     await page.setContent(html, {
-      waitUntil: "domcontentloaded",
+      waitUntil: "networkidle0",
       timeout: 30000,
     })
 
-    // Race font loading against timeout — never hangs offline
+    // Wait for fonts
     await page.evaluate((ms) =>
       Promise.race([
         document.fonts.ready,
@@ -474,22 +480,34 @@ async function renderOnce(html) {
       FONT_TIMEOUT_MS
     )
 
-    // Let layout reflow settle after fonts
-    await new Promise(r => setTimeout(r, LAYOUT_DELAY_MS))
+    await new Promise(r =>
+      setTimeout(r, LAYOUT_DELAY_MS)
+    )
 
     const pdfResult = await page.pdf({
+
       format: "A4",
+
       printBackground: true,
+
       preferCSSPageSize: true,
-      margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
+
+      margin: {
+        top: "0mm",
+        right: "0mm",
+        bottom: "0mm",
+        left: "0mm",
+      },
+
       displayHeaderFooter: false,
-      timeout: 30000,
     })
 
-    // page.pdf() returns Uint8Array in newer Puppeteer — ensure Buffer
-    return Buffer.isBuffer(pdfResult) ? pdfResult : Buffer.from(pdfResult)
+    return Buffer.isBuffer(pdfResult)
+      ? pdfResult
+      : Buffer.from(pdfResult)
 
   } finally {
+
     await browser.close()
   }
 }
