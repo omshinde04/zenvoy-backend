@@ -2,62 +2,103 @@ require("dotenv").config()
 
 const fastify = require("fastify")({
     logger: {
-        level: "info",
+        level: process.env.NODE_ENV === "production"
+            ? "info"
+            : "debug",
     },
+
     bodyLimit: 10 * 1024 * 1024,
+
+    trustProxy: true,
 })
 
-// ─── ENV VALIDATION ───────────────────────────────────────
+// =========================================================
+// ENV VALIDATION
+// =========================================================
 
-if (!process.env.JWT_SECRET) {
-    console.error("❌ Missing JWT_SECRET")
-    process.exit(1)
-}
+const requiredEnv = [
+    "JWT_SECRET",
+    "DATABASE_URL",
+]
 
-// ─── CORS ────────────────────────────────────────────────
+requiredEnv.forEach((key) => {
+    if (!process.env[key]) {
+        console.error(`❌ Missing environment variable: ${key}`)
+        process.exit(1)
+    }
+})
 
-// ✅ FINAL ALLOWED ORIGINS
+// =========================================================
+// ALLOWED ORIGINS
+// =========================================================
+
 const allowedOrigins = [
     "http://localhost:3000",
+
     "https://zapiya.com",
+
     "https://www.zapiya.com",
+
+    "https://zenvoy.vercel.app",
 ]
 
 console.log("🌐 Allowed Origins:", allowedOrigins)
 
-// ✅ SIMPLE + RELIABLE CORS
-fastify.register(require("@fastify/cors"), {
-    origin: (origin, cb) => {
-        if (!origin) return cb(null, true)
+// =========================================================
+// CORS
+// =========================================================
 
+fastify.register(require("@fastify/cors"), {
+
+    origin: (origin, cb) => {
+
+        // Allow server-to-server requests
+        if (!origin) {
+            return cb(null, true)
+        }
+
+        // Allow listed origins
         if (allowedOrigins.includes(origin)) {
+
             console.log("✅ CORS allowed:", origin)
+
             return cb(null, true)
         }
 
         console.error("❌ CORS blocked:", origin)
-        return cb(new Error("Not allowed"), false)
+
+        return cb(new Error("Not allowed by CORS"), false)
     },
+
     credentials: true,
 })
 
-// ─── COOKIE ───────────────────────────────────────────────
+// =========================================================
+// COOKIE
+// =========================================================
 
 fastify.register(require("@fastify/cookie"))
 
-// ─── JWT ──────────────────────────────────────────────────
+// =========================================================
+// JWT
+// =========================================================
 
 fastify.register(require("@fastify/jwt"), {
+
     secret: process.env.JWT_SECRET,
+
     cookie: {
         cookieName: "zenvoy_token",
         signed: false,
     },
 })
 
-// ─── REQUEST LOGGING ─────────────────────────────────────
+// =========================================================
+// REQUEST LOGGING
+// =========================================================
 
-fastify.addHook("onRequest", async (req, reply) => {
+fastify.addHook("onRequest", async (req) => {
+
     fastify.log.info({
         method: req.method,
         url: req.url,
@@ -65,53 +106,105 @@ fastify.addHook("onRequest", async (req, reply) => {
     }, "Incoming request")
 })
 
-// ─── RESPONSE LOGGING ─────────────────────────────────────
+// =========================================================
+// RESPONSE LOGGING
+// =========================================================
 
 fastify.addHook("onResponse", async (req, reply) => {
+
     fastify.log.info({
         statusCode: reply.statusCode,
         url: req.url,
     }, "Response sent")
 })
 
-// ─── GLOBAL ERROR HANDLER ────────────────────────────────
+// =========================================================
+// GLOBAL ERROR HANDLER
+// =========================================================
 
 fastify.setErrorHandler((error, req, reply) => {
-    fastify.log.error("🔥 Server Error:", error)
 
-    reply.status(500).send({
+    fastify.log.error(error)
+
+    reply.status(error.statusCode || 500).send({
         success: false,
-        message: error.message || "Internal Server Error",
+        message:
+            process.env.NODE_ENV === "production"
+                ? "Internal Server Error"
+                : error.message,
     })
 })
 
-// ─── ROUTES ───────────────────────────────────────────────
+// =========================================================
+// ROUTES
+// =========================================================
 
 fastify.register(require("./routes/auth"))
+
 fastify.register(require("./routes/pdf"))
 
-// ─── HEALTH CHECK ─────────────────────────────────────────
+// =========================================================
+// ROOT ROUTE
+// =========================================================
 
-fastify.get("/health", async () => {
+fastify.get("/", async () => {
+
     return {
-        status: "ok",
-        service: "Zenvoy API",
-        time: new Date().toISOString(),
+        success: true,
+        message: "Zenvoy Backend Running 🚀",
     }
 })
 
-// ─── START SERVER ─────────────────────────────────────────
+// =========================================================
+// HEALTH CHECK
+// =========================================================
+
+fastify.get("/health", async () => {
+
+    return {
+        success: true,
+
+        status: "ok",
+
+        service: "Zenvoy API",
+
+        uptime: process.uptime(),
+
+        timestamp: new Date().toISOString(),
+    }
+})
+
+// =========================================================
+// KEEP-ALIVE OPTIMIZATION
+// =========================================================
+
+// Helps Render wake slightly faster
+fastify.server.keepAliveTimeout = 65000
+fastify.server.headersTimeout = 66000
+
+// =========================================================
+// START SERVER
+// =========================================================
 
 const start = async () => {
+
     try {
+
+        const PORT = process.env.PORT || 4000
+
         await fastify.listen({
-            port: process.env.PORT || 4000,
+            port: PORT,
             host: "0.0.0.0",
         })
 
-        console.log(`🚀 Backend running on port ${process.env.PORT || 4000}`)
+        console.log(`🚀 Backend running on port ${PORT}`)
+
+        console.log("✅ Production server started successfully")
+
     } catch (err) {
+
         fastify.log.error(err)
+
         process.exit(1)
     }
 }
