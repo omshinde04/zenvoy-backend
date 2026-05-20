@@ -6,8 +6,12 @@
 
 "use strict"
 
-const puppeteer = require("puppeteer-core")
 const chromium = require("@sparticuz/chromium")
+
+const isProduction =
+  process.env.NODE_ENV === "production"
+
+let puppeteer
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const FONT_TIMEOUT_MS = 5000
@@ -443,17 +447,78 @@ function getTemplateHTML(templateId, data) {
 // ── PDF render — single attempt ───────────────────────────────────────────────
 async function renderOnce(html) {
 
+  // =====================================================
+  // PRODUCTION (RENDER)
+  // =====================================================
+
+  if (isProduction) {
+
+    puppeteer = require("puppeteer-core")
+
+    const browser = await puppeteer.launch({
+
+      args: chromium.args,
+
+      defaultViewport: chromium.defaultViewport,
+
+      executablePath:
+        await chromium.executablePath(),
+
+      headless: true,
+
+      ignoreHTTPSErrors: true,
+    })
+
+    try {
+
+      const page = await browser.newPage()
+
+      await page.setViewport({
+        width: 794,
+        height: 1123,
+        deviceScaleFactor: 1,
+      })
+
+      await page.setContent(html, {
+        waitUntil: "networkidle0",
+        timeout: 30000,
+      })
+
+      const pdf = await page.pdf({
+        format: "A4",
+        printBackground: true,
+        preferCSSPageSize: true,
+      })
+
+      return Buffer.from(pdf)
+
+    } finally {
+
+      await browser.close()
+    }
+  }
+
+  // =====================================================
+  // LOCAL DEVELOPMENT
+  // =====================================================
+
+  // =====================================================
+  // LOCAL DEVELOPMENT
+  // =====================================================
+
+  puppeteer = require("puppeteer")
+
   const browser = await puppeteer.launch({
 
-    args: chromium.args,
+    executablePath:
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
 
-    defaultViewport: chromium.defaultViewport,
+    headless: true,
 
-    executablePath: await chromium.executablePath(),
-
-    headless: chromium.headless,
-
-    ignoreHTTPSErrors: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+    ],
   })
 
   try {
@@ -471,47 +536,19 @@ async function renderOnce(html) {
       timeout: 30000,
     })
 
-    // Wait for fonts
-    await page.evaluate((ms) =>
-      Promise.race([
-        document.fonts.ready,
-        new Promise(r => setTimeout(r, ms)),
-      ]),
-      FONT_TIMEOUT_MS
-    )
-
-    await new Promise(r =>
-      setTimeout(r, LAYOUT_DELAY_MS)
-    )
-
-    const pdfResult = await page.pdf({
-
+    const pdf = await page.pdf({
       format: "A4",
-
       printBackground: true,
-
       preferCSSPageSize: true,
-
-      margin: {
-        top: "0mm",
-        right: "0mm",
-        bottom: "0mm",
-        left: "0mm",
-      },
-
-      displayHeaderFooter: false,
     })
 
-    return Buffer.isBuffer(pdfResult)
-      ? pdfResult
-      : Buffer.from(pdfResult)
+    return Buffer.from(pdf)
 
   } finally {
 
     await browser.close()
   }
 }
-
 // ── Validate output ───────────────────────────────────────────────────────────
 function validate(buf, attempt) {
   if (!buf || buf.length < MIN_PDF_BYTES) {

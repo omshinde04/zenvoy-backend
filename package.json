@@ -2,6 +2,9 @@
   "name": "zenvoy-backend",
   "version": "1.0.0",
   "main": "index.js",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js"
@@ -14,12 +17,13 @@
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
     "@fastify/jwt": "^10.0.0",
-    "@sparticuz/chromium": "^147.0.0",
+    "@sparticuz/chromium": "^126.0.0",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "fastify": "^5.8.5",
     "pg": "^8.20.0",
-    "puppeteer-core": "^24.43.1"
+    "puppeteer": "^24.43.1",
+    "puppeteer-core": "^22.15.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
