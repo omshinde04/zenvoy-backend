@@ -2,9 +2,21 @@
 
 const authenticate = async (request, reply) => {
     try {
-        await request.jwtVerify()
+        const token =
+            request.cookies?.zenvoy_token ||
+            request.headers.authorization?.replace(/^Bearer\s+/i, "")
+
+        if (!token) {
+            return reply.status(401).send({
+                success: false,
+                message: "Unauthorized. Please login.",
+            })
+        }
+
+        const decoded = request.server.jwt.verify(token)
+        request.user = decoded
     } catch (err) {
-        reply.status(401).send({
+        return reply.status(401).send({
             success: false,
             message: "Unauthorized. Please login.",
         })

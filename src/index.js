@@ -141,7 +141,7 @@ fastify.setErrorHandler((error, req, reply) => {
 
 fastify.register(require("./routes/auth"))
 
-fastify.register(require("./routes/pdf"))
+fastify.register(require("./routes/resumes"))
 
 // =========================================================
 // ROOT ROUTE
